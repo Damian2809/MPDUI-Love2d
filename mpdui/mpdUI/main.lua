@@ -7,7 +7,7 @@ local gameWidth, gameHeight = 640, 480 -- Fixed game resolution
 local windowWidth, windowHeight = love.window.getDesktopDimensions()
 push:setupScreen(gameWidth, gameHeight, windowWidth, windowHeight, {fullscreen = false})
 
-local mpd_host = "192.168.178.175"
+local mpd_host = "10.1.1.2"
 --local mpd_host = "localhost"
 local mpd_port = 6970
 local mpd_client
