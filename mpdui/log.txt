@@ -1,0 +1,24 @@
+Running on Some CFW with ALSA
+./mpd: error while loading shared libraries: libsystemd.so.0: cannot open shared object file: No such file or directory
+Running in UINPUT output mode.
+ALSA lib dlmisc.c:287:(snd1_dlobj_cache_get) Cannot open shared library /usr/lib/aarch64-linux-gnu/alsa-lib/libasound_module_pcm_pipewire.so ((null): /usr/lib/aarch64-linux-gnu/alsa-lib/libasound_module_pcm_pipewire.so: cannot open shared object file: No such file or directory)
+AL lib: (EE) ALCplaybackAlsa_open: Could not open playback device 'default': No such device or address
+Could not open device.
+Connecting to MPD...
+Connected to MPD!
+Reloading DB
+Songs List:
+Alex G - 16 Mirrors.mp3
+Connected to MPD!
+Reloading DB
+Adding song to playlist: Alex G - 16 Mirrors.mp3
+Music stopped.
+Music started.
+Music stopped.
+Music started.
+Adding song to playlist: Alex G - 16 Mirrors.mp3
+Music stopped.
+Running in Fake Keyboard mode
+Using ConfigFile input.gptk
+Joystick 0 has game controller name 'Anbernic RG35XX-Plus Controller'
+Killing: love.aarch64
