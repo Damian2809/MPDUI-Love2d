@@ -30,6 +30,8 @@ cd $GAMEDIR
 export LD_LIBRARY_PATH="$GAMEDIR/libs:$LD_LIBRARY_PATH"
 export SDL_GAMECONTROLLERCONFIG="$sdl_controllerconfig"
 bind_directories ~/music $GAMEDIR/music
+bind_directories ~/playlists $GAMEDIR/playlists
+
 source $controlfolder/runtimes/"love_11.5"/love.txt
 # MPD Start
 if [ "$CFW_NAME" = "ROCKNIX" ]; then
