@@ -6,8 +6,8 @@ local gameWidth, gameHeight = 640, 480 -- Fixed game resolution
 local windowWidth, windowHeight = love.window.getDesktopDimensions()
 push:setupScreen(gameWidth, gameHeight, windowWidth, windowHeight, {fullscreen = false})
 
---local mpd_host = "10.1.1.2" -- Just for Debugging on my PC to other devices
-local mpd_host = "localhost"
+local mpd_host = "10.1.1.2" -- Just for Debugging on my PC to other devices
+--local mpd_host = "localhost"
 local mpd_port = 6970
 local mpd_client
 local songs = {}
@@ -35,6 +35,18 @@ local song_scroll_offset = 0 -- Horizontal scroll offset for the selected song
 local song_scroll_speed = 50 -- Pixels per second for scrolling
 local song_scroll_timer = 0 -- Timer to control when scrolling starts
 local song_scroll_delay = 2 -- Seconds to wait before scrolling starts
+
+-- Scroll variables for metadata
+local metadata_scroll_offset = { title = 0, artist = 0, album = 0, genre = 0, length = 0 }
+local metadata_scroll_speed = 20 -- Slower scrolling speed (pixels per second)
+local metadata_scroll_timer = { title = 0, artist = 0, album = 0, genre = 0, length = 0 }
+local metadata_scroll_delay = 2 -- Seconds to wait before scrolling starts
+
+-- Scroll variables for play queue
+local play_queue_scroll_offset = 0
+local play_queue_scroll_speed = 20 -- Slower scrolling speed (pixels per second)
+local play_queue_scroll_timer = 0
+local play_queue_scroll_delay = 2 -- Seconds to wait before scrolling starts
 
 -- Variables for playlist support
 local is_playlist_view = false
@@ -106,6 +118,26 @@ function love.update(dt)
             end
         else
             song_scroll_offset = 0 
+        end
+    end
+
+    -- Handle scrolling for metadata fields
+    for field, offset in pairs(metadata_scroll_offset) do
+        local text = metadata[field] or "N/A"
+        local text_width = font:getWidth(text)
+        local max_width = screenWidth * 0.35 - 20 -- Width of the metadata box minus padding
+
+        if text_width > max_width then
+            metadata_scroll_timer[field] = metadata_scroll_timer[field] + dt
+            if metadata_scroll_timer[field] > metadata_scroll_delay then
+                metadata_scroll_offset[field] = metadata_scroll_offset[field] + metadata_scroll_speed * dt
+                if metadata_scroll_offset[field] > text_width then
+                    metadata_scroll_offset[field] = -max_width -- Reset scrolling to the start
+                end
+            end
+        else
+            metadata_scroll_offset[field] = 0 -- Reset scrolling if the text fits
+            metadata_scroll_timer[field] = 0 -- Reset the scroll timer
         end
     end
 end
@@ -314,26 +346,24 @@ function fetch_metadata(song_path)
 
     for _, line in ipairs(response) do
         if line:find("^Title:") then
-            metadata.title = line:gsub("Title: ", "")
+            metadata.title = line:gsub("Title: ", "") -- Remove the "Title: " prefix
         elseif line:find("^Artist:") then
-            metadata.artist = line:gsub("Artist: ", "")
+            metadata.artist = line:gsub("Artist: ", "") -- Remove the "Artist: " prefix
         elseif line:find("^Album:") then
-            metadata.album = line:gsub("Album: ", "")
+            metadata.album = line:gsub("Album: ", "") -- Remove the "Album: " prefix
         elseif line:find("^Track:") then
-            metadata.track = line:gsub("Track: ", "")
+            metadata.track = line:gsub("Track: ", "") -- Remove the "Track: " prefix
         elseif line:find("^Genre:") then
-            metadata.genre = line:gsub("Genre: ", "")
+            metadata.genre = line:gsub("Genre: ", "") -- Remove the "Genre: " prefix
         elseif line:find("^Time:") then
-            local time_str = line:gsub("Time: ", "") 
-            -- print("Time field:", time_str) -- Debugging this because i hate it but its a nice thing to have
-            local time_in_seconds = tonumber(time_str) -- Convert to number, whoever thought this was a good idea is a fucking idiot (sorry not sorry)
+            local time_str = line:gsub("Time: ", "") -- Remove the "Time: " prefix
+            local time_in_seconds = tonumber(time_str)
             if time_in_seconds then
                 local minutes = math.floor(time_in_seconds / 60)
                 local seconds = time_in_seconds % 60
-                metadata.length = string.format("%d:%02d", minutes, seconds) -- Format as minutes:seconds
+                metadata.length = string.format("%d:%02d", minutes, seconds)
             else
-                metadata.length = "N/A" 
-                print("Invalid Time field:", time_str)
+                metadata.length = "N/A"
             end
         end
     end
@@ -563,66 +593,105 @@ function love.draw()
         end
 
         -- Song Metadata Box
-        love.graphics.setColor(1, 1, 1)
         local box_x = screenWidth * 0.6
         local box_y = 50
         local box_width = screenWidth * 0.35
-        local box_height = screenHeight - 150 
+        local box_height = screenHeight - 150
 
-        love.graphics.setColor(0.2, 0.2, 0.2) 
+        -- Draw the metadata box background
+        love.graphics.setColor(0.2, 0.2, 0.2)
         love.graphics.rectangle("fill", box_x, box_y, box_width, box_height, 10)
 
-
+        -- Set up text positioning and spacing
         local text_x = box_x + 10
         local text_y = box_y + 10
+        local field_spacing = 30 -- Space between fields
 
+        -- Draw metadata fields
         love.graphics.setColor(1, 1, 1)
-        if metadata.title then
-            love.graphics.print("Title: " .. metadata.title, text_x, text_y)
-            text_y = text_y + 20
-        else
-            love.graphics.print("Title: N/A", text_x, text_y)
-            text_y = text_y + 20
+        love.graphics.setFont(minifont)
+
+        -- Helper function to draw a metadata field with scrolling
+        local function draw_metadata_field(label, value, scroll_offset, field)
+            love.graphics.print(label, text_x, text_y)
+
+            local max_width = box_width - 60 -- Width available for the value
+            local text_width = font:getWidth(value or "N/A")
+
+            if text_width > max_width then
+                -- Enable clipping for scrolling
+                love.graphics.setScissor(text_x + 50, text_y, max_width, 20)
+
+                -- Draw the scrolling text
+                love.graphics.print(value or "N/A", text_x + 50 - scroll_offset, text_y)
+
+                -- Disable clipping
+                love.graphics.setScissor()
+
+                -- Update the scroll offset
+                metadata_scroll_timer[field] = metadata_scroll_timer[field] + love.timer.getDelta()
+                if metadata_scroll_timer[field] > metadata_scroll_delay then
+                    metadata_scroll_offset[field] = metadata_scroll_offset[field] + metadata_scroll_speed * love.timer.getDelta()
+                    if metadata_scroll_offset[field] > text_width + 20 then
+                        metadata_scroll_offset[field] = -max_width -- Reset scrolling to the start
+                    end
+                end
+            else
+                -- Draw static text if it fits
+                love.graphics.print(value or "N/A", text_x + 50, text_y)
+                metadata_scroll_offset[field] = 0 -- Reset scrolling if the text fits
+                metadata_scroll_timer[field] = 0 -- Reset the scroll timer
+            end
+
+            text_y = text_y + field_spacing
         end
-        if metadata.artist then
-            love.graphics.print("Artist: " .. metadata.artist, text_x, text_y)
-            text_y = text_y + 20
-        else
-            love.graphics.print("Artist: N/A", text_x, text_y)
-            text_y = text_y + 20
-        end
-        if metadata.album then
-            love.graphics.print("Album: " .. metadata.album, text_x, text_y)
-            text_y = text_y + 20
-        else
-            love.graphics.print("Album: N/A", text_x, text_y)
-            text_y = text_y + 20
-        end
-        if metadata.genre then
-            love.graphics.print("Genre: " .. metadata.genre, text_x, text_y)
-            text_y = text_y + 20
-        else
-            love.graphics.print("Genre: N/A", text_x, text_y)
-            text_y = text_y + 20
-        end
-        if metadata.length then
-            love.graphics.print("Length: " .. metadata.length, text_x, text_y)
-            text_y = text_y + 20
-        else
-            love.graphics.print("Length: N/A", text_x, text_y)
-            text_y = text_y + 20
-        end
+
+        -- Draw each metadata field with scrolling
+        draw_metadata_field("Title:", metadata.title, metadata_scroll_offset.title, "title")
+        draw_metadata_field("Artist:", metadata.artist, metadata_scroll_offset.artist, "artist")
+        draw_metadata_field("Album:", metadata.album, metadata_scroll_offset.album, "album")
+        draw_metadata_field("Genre:", metadata.genre, metadata_scroll_offset.genre, "genre")
+        draw_metadata_field("Length:", metadata.length, metadata_scroll_offset.length, "length")
+
+        -- Disable clipping (if previously enabled)
+        love.graphics.setScissor()
 
         text_y = text_y + 10
 
+        -- Draw the play queue with scrolling
         love.graphics.print("Play Queue:", text_x, text_y)
         text_y = text_y + 20
 
+        local max_queue_width = box_width - 20 -- Width available for the play queue
         for i, song in ipairs(play_queue) do
-            love.graphics.print(song, text_x, text_y)
+            local song_width = font:getWidth(song)
+
+            if song_width > max_queue_width then
+                -- Enable clipping for scrolling
+                love.graphics.setScissor(text_x, text_y, max_queue_width, 20)
+
+                -- Draw the scrolling text
+                love.graphics.print(song, text_x - play_queue_scroll_offset, text_y)
+
+                -- Disable clipping
+                love.graphics.setScissor()
+
+                -- Update the scroll offset
+                play_queue_scroll_timer = play_queue_scroll_timer + love.timer.getDelta()
+                if play_queue_scroll_timer > play_queue_scroll_delay then
+                    play_queue_scroll_offset = play_queue_scroll_offset + play_queue_scroll_speed * love.timer.getDelta()
+                    if play_queue_scroll_offset > song_width + 20 then
+                        play_queue_scroll_offset = -max_queue_width -- Reset scrolling to the start
+                    end
+                end
+            else
+                -- Draw static text if it fits
+                love.graphics.print(song, text_x, text_y)
+            end
+
             text_y = text_y + 20
             if text_y > box_y + box_height - 20 then
-                break
+                break -- Stop drawing if we exceed the box height
             end
         end
     end
